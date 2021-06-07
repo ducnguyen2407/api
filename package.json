@@ -8,5 +8,6 @@
   "scripts": {
     "start": "node .",
     "test": "node test"
-  }
+  },
+  "main": "index.js"
 }

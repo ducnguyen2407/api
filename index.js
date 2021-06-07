@@ -5,18 +5,37 @@
  * @param {!express:Response} res HTTP response context.
  */
 
-const helloWorld = (req, res) => {
-  let message = req.query.message || req.body.message || "Hello World!"
-  res.status(200).send(message)
+const { Client } = require("pg")
+const client = new Client({
+  user: "postgres",
+  host: "localhost",
+  database: "duc",
+  password: "123456",
+  port: 5432,
+})
+async function execute() {
+  await client.connect()
+  const res = await client.query(`SELECT  
+     d.seq, d.node, d.edge, d.cost, st_asgeojson(e.geom) AS edge_geom
+ FROM  
+     pgr_dijkstra(
+         'SELECT gid AS id, source, target, length AS cost FROM duongbinhthanh',  
+         (SELECT place_id FROM bus_stations WHERE ten_tram = 'Ngã Tư Chu Văn An' and id = 10824),                                                                                  
+         (SELECT place_id FROM bus_stations WHERE ten_tram = 'Khu Du lịch Văn Thánh' AND id = 11010),
+         FALSE
+     ) as d                                         
+     LEFT JOIN duongbinhthanh as e on d.edge = e.gid 
+ ORDER BY d.seq; `)
 
-  // ket noi postgre sql
+  await client.end()
 
-  // node.js
+  const coordinates = JSON.parse(res.rows[1].edge_geom).coordinates
+
+  return coordinates
 }
 
-module.exports = {
-  helloWorld,
+exports.helloWorld = async (req, res) => {
+  const coordinates = await execute()
+
+  res.status(200).json(coordinates);
 }
-
-
-helloWorld({}, {})
