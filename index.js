@@ -1,41 +1,42 @@
-/**
- * Responds to any HTTP request.
- *
- * @param {!express:Request} req HTTP request context.
- * @param {!express:Response} res HTTP response context.
- */
-
 const { Client } = require("pg")
 const client = new Client({
   user: "postgres",
-  host: "localhost",
+  host: "34.126.69.133",
   database: "duc",
-  password: "123456",
+  password: "KhoaLuan1@3$",
   port: 5432,
 })
-async function execute() {
+async function execute(id1, id2) {
   await client.connect()
-  const res = await client.query(`SELECT  
-     d.seq, d.node, d.edge, d.cost, st_asgeojson(e.geom) AS edge_geom
- FROM  
-     pgr_dijkstra(
-         'SELECT gid AS id, source, target, length AS cost FROM duongbinhthanh',  
-         (SELECT place_id FROM bus_stations WHERE ten_tram = 'Ngã Tư Chu Văn An' and id = 10824),                                                                                  
-         (SELECT place_id FROM bus_stations WHERE ten_tram = 'Khu Du lịch Văn Thánh' AND id = 11010),
-         FALSE
-     ) as d                                         
-     LEFT JOIN duongbinhthanh as e on d.edge = e.gid 
- ORDER BY d.seq; `)
+  const values = [id1, id2]
+  const res = await client.query(
+    `SELECT  
+      d.seq, d.node, d.edge, d.cost, st_asgeojson(e.geom) AS edge_geom
+  FROM  
+      pgr_dijkstra(
+          'SELECT gid AS id, source, target, length AS cost FROM duongbinhthanh',  
+          (SELECT place_id FROM bus_stations WHERE id = $1),                                                                                  
+          (SELECT place_id FROM bus_stations WHERE id = $2),
+          FALSE
+      ) as d                                         
+      LEFT JOIN duongbinhthanh as e on d.edge = e.gid 
+      where edge <> -1
+  ORDER BY d.seq; `,
+    values
+  )
 
   await client.end()
+  const coors = res.rows.flatMap((r) => {
+    return JSON.parse(r.edge_geom).coordinates.flatMap((d) => d)
+  })
 
-  const coordinates = JSON.parse(res.rows[1].edge_geom).coordinates
-
-  return coordinates
+  return coors
 }
 
 exports.helloWorld = async (req, res) => {
-  const coordinates = await execute()
+  const originId = req.body.originId
+  const destinationId = req.body.destinationId
+  const coordinates = await execute(originId, destinationId)
 
   res.status(200).json(coordinates);
 }
